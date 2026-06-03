@@ -1,0 +1,149 @@
+# ============================================================================
+# my_CMakeLists.txt — YOLO11 C++ Demo 构建配置（带中文注释）
+#
+# 【作用】
+#   本文件是 CMake 构建入口，负责：
+#   1. 根据目标芯片平台（TARGET_SOC）选择正确的推理后端源文件
+#   2. 链接第三方预编译库（3rdparty/）和通用工具库（utils/）
+#   3. 生成最终的可执行文件
+#
+# 【构建方式】
+#   不要直接 cmake，而是使用项目根目录的 build-linux.sh 脚本：
+#     ./build-linux.sh -t rk3588 -a aarch64 -d yolo11
+#   脚本会自动传递 TARGET_SOC 和架构等参数
+#
+# 【三路平台分支】
+#   - rk356x/rk3588/rk3576 等 → rknpu2/my_yolo11.cc（标准接口）
+#   - rv1106/rv1103          → rknpu2/my_yolo11_rv1106_1103.cc（零拷贝+NHWC）
+#   - rk1808/rv1109/rv1126   → rknpu1/my_yolo11.cc（旧平台 uint8 量化）
+#   此外，非受限平台还会额外生成一个 my_xxx_zero_copy 可执行文件
+# ============================================================================
+
+cmake_minimum_required(VERSION 3.10)
+
+project(rknn_my_yolo11_demo)
+
+if (ENABLE_ASAN)
+	message(STATUS "BUILD WITH ADDRESS SANITIZER")
+	set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+	set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+	set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+endif ()
+
+# ---- 根据目标 SOC 选择推理后端实现 ----
+# 默认使用 rknpu2 标准版
+set(rknpu_yolo11_file rknpu2/my_yolo11.cc)
+
+# RV1106/RV1103：使用零拷贝 native NHWC 接口
+if (TARGET_SOC STREQUAL "rv1106" OR TARGET_SOC STREQUAL "rv1103")
+    add_definitions(-DRV1106_1103)
+    set(rknpu_yolo11_file rknpu2/my_yolo11_rv1106_1103.cc)
+    # DMA 内存分配器（RV1106 RGA 需要）
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../3rdparty/allocator/dma)
+endif()
+
+# RKNPU1 旧平台（rk1808/rv1109/rv1126）
+if(TARGET_SOC STREQUAL "rk1808" OR TARGET_SOC STREQUAL "rv1109" OR TARGET_SOC STREQUAL "rv1126")
+    add_definitions(-DRKNPU1)
+    set(rknpu_yolo11_file rknpu1/my_yolo11.cc)
+endif()
+
+# ---- 引入第三方库和工具库 ----
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../3rdparty/ 3rdparty.out)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../utils/ utils.out)
+
+set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib")
+
+# ---- 编译主可执行文件 ----
+# 注意：这里将 main.cc 和 postprocess.cc 也换成了 my_ 版本
+#       如果你只改了 my_main.cc，也可以只替换这一个
+file(GLOB SRCS ${CMAKE_CURRENT_SOURCE_DIR}/*.cc)
+
+add_executable(${PROJECT_NAME}
+    my_main.cc              # 主入口（已注释）
+    my_postprocess.cc       # 后处理（已注释）
+    ${rknpu_yolo11_file}    # 根据平台选择的推理后端（已注释）
+)
+
+# 链接的库：
+#   imageutils   → utils/ 中的图像处理（resize、letterbox、颜色转换）
+#   fileutils    → utils/ 中的文件操作（读取模型文件）
+#   imagedrawing → utils/ 中的画框和文字绘制
+#   librknnrt    → 3rdparty/rknpu2/ 中的 RKNPU runtime 库
+#   dl           → dlopen 等动态加载函数
+target_link_libraries(${PROJECT_NAME}
+    imageutils
+    fileutils
+    imagedrawing
+    ${LIBRKNNRT}
+    dl
+)
+
+# Android 额外需要 log 库
+if (CMAKE_SYSTEM_NAME STREQUAL "Android")
+    target_link_libraries(${PROJECT_NAME}
+    log
+)
+endif()
+
+# Linux 需要 pthread
+message(STATUS "!!!!!!!!!!!CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(THREADS_PREFER_PTHREAD_FLAG ON)
+    find_package(Threads REQUIRED)
+    target_link_libraries(${PROJECT_NAME} Threads::Threads)
+endif()
+
+# 头文件搜索路径
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${LIBRKNNRT_INCLUDES}
+)
+
+
+# ---- 额外编译零拷贝版可执行文件（仅 rknpu2 非受限平台） ----
+# Zero Copy 模式跳过 rknn_inputs_set / rknn_outputs_get，
+# 直接用 rknn_set_io_mem 绑定内存，减少数据拷贝开销
+if (NOT (TARGET_SOC STREQUAL "rv1106" OR TARGET_SOC STREQUAL "rv1103" OR TARGET_SOC STREQUAL "rk1808"
+    OR TARGET_SOC STREQUAL "rv1109" OR TARGET_SOC STREQUAL "rv1126" OR TARGET_SOC STREQUAL "rv1103b"))
+    add_executable(${PROJECT_NAME}_zero_copy
+        my_main.cc
+        my_postprocess.cc
+        rknpu2/my_yolo11_zero_copy.cc      # 零拷贝推理实现
+    )
+
+    target_compile_definitions(${PROJECT_NAME}_zero_copy PRIVATE ZERO_COPY)
+
+    target_link_libraries(${PROJECT_NAME}_zero_copy
+        imageutils
+        fileutils
+        imagedrawing
+        ${LIBRKNNRT}
+        dl
+    )
+
+    if (CMAKE_SYSTEM_NAME STREQUAL "Android")
+        target_link_libraries(${PROJECT_NAME}_zero_copy
+        log
+    )
+    endif()
+
+    if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(THREADS_PREFER_PTHREAD_FLAG ON)
+        find_package(Threads REQUIRED)
+        target_link_libraries(${PROJECT_NAME}_zero_copy Threads::Threads)
+    endif()
+
+    target_include_directories(${PROJECT_NAME}_zero_copy PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${LIBRKNNRT_INCLUDES}
+    )
+    install(TARGETS ${PROJECT_NAME}_zero_copy DESTINATION .)
+endif()
+
+# ---- 安装规则 ----
+install(TARGETS ${PROJECT_NAME} DESTINATION .)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../model/bus.jpg DESTINATION model)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../model/coco_80_labels_list.txt DESTINATION model)
+file(GLOB RKNN_FILES "${CMAKE_CURRENT_SOURCE_DIR}/../model/*.rknn")
+install(FILES ${RKNN_FILES} DESTINATION model)

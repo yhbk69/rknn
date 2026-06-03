@@ -1,0 +1,94 @@
+# Model files
+*.rknn
+*.pt
+*.torchscript
+*.onnx
+*.pb
+*.pkl
+*.torch
+*.pth
+*.caffemodel
+*.prototxt
+*.tflite
+*.engine
+*.trt
+*.avi
+
+# Python
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Logs
+*.log
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.rar
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Build output
+build/
+install/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# Datasets
+datasets/
+
+# Debug and analysis
+breakpoint_output/
+dump_data_distribute/
+snapshot/
+snapshot*/
+
+# AI Assistant configuration
+.qwen/
+
+# Test results
+result/
+unittest/example_test_result
+
+# Internal tools and data
+developer_conference/
+internal_data/
+model_cvt
+report.yml
+
+# Configuration files
+unittest/env_config.py
+common/utils/run_and_gen_result.py
+common/utils/update_driver.py
+capi_tools/internal/fixed_frequency_android.sh
+capi_tools/internal/fixed_frequency.sh
+common/onnx_breakpoint_tools.py
+models/CV/object_detection/yolo/RKNN_python_demo/*.json
+
+# Temporary directories
+tmp/
+temp/
