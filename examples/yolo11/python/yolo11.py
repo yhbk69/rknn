@@ -1,3 +1,32 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+YOLO11 图片检测脚本（支持 PyTorch / ONNX / RKNN）
+
+使用方法:
+    cd /home/ztl/dltt/code/rknn/rknn_model_zoo-v2.3.0/examples/yolo11/python
+
+    # PyTorch 模型推理（显示结果）
+    python yolo11.py --model_path ../model/yolo11n.pt --img_show
+
+    # ONNX 模型推理（保存结果）
+    python yolo11.py --model_path ../model/yolo11n.onnx --img_save
+
+    # 指定图片目录
+    python yolo11.py --model_path ../model/yolo11n.pt --img_folder ../model --img_save
+
+    # COCO mAP 评测
+    python yolo11.py --model_path ../model/yolo11n.pt --coco_map_test
+
+参数说明:
+    --model_path      模型路径 (.pt / .onnx / .rknn)，必填
+    --target          目标平台 (default: rk3566)
+    --img_show        显示检测结果图像
+    --img_save        保存结果到 ./result/
+    --img_folder      图片目录 (default: ../model)
+    --coco_map_test   启用 COCO mAP 评测
+"""
+
 import os
 import cv2
 import sys
@@ -437,7 +466,13 @@ if __name__ == '__main__':
             # 显示结果图像
             if args.img_show:
                 cv2.imshow("full post process result", img_p)
-                cv2.waitKeyEx(0)
+                print("按任意键继续下一张，按 'q' 退出...")
+                key = cv2.waitKey(0) & 0xFF
+                if key == ord('q'):
+                    cv2.destroyAllWindows()
+                    model.release()
+                    print("用户退出")
+                    exit(0)
 
         # 记录 mAP 测试结果
         if args.coco_map_test is True:
@@ -463,6 +498,7 @@ if __name__ == '__main__':
         coco_eval_with_json(args.anno_json, pred_json)
 
     # 释放模型资源
+    cv2.destroyAllWindows()
     model.release()
 import os
 import cv2
