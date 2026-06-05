@@ -129,30 +129,30 @@ if __name__ == '__main__':
     print('done')
 
     # 加载 ONNX 模型
-    print('--> Loading model')
+    print('--> Loading ONNX model')
     ret = rknn.load_onnx(model=model_path)
     if ret != 0:
-        print('Load model failed!')
+        print('Load ONNXmodel failed!')
         exit(ret)
     print('done')
 
     # 构建 RKNN 模型
     # do_quantization: 是否量化，dataset: 校准数据集路径（仅量化时需要）
-    print('--> Building model')
+    print('--> Building RKNN model')
     ret = rknn.build(do_quantization=do_quant, dataset=DATASET_PATH)
     if ret != 0:
-        print('Build model failed!')
+        print('Build RKNN model failed!')
         exit(ret)
     print('done')
 
     # 导出 RKNN 模型到文件
-    print('--> Export rknn model')
+    print('--> Export RKNN model')
     ret = rknn.export_rknn(output_path)
     if ret != 0:
-        print('Export rknn model failed!')
+        print('Export RKNN model failed!')
         exit(ret)
     print('done')
 
-    # 释放资源
+    # 释放 RKNN 对象占用的资源
     rknn.release()
-    print('模型转换完成: {}'.format(output_path))
+    print('RKNN model conversion completed: {}'.format(output_path))

@@ -214,7 +214,7 @@ def setup_model(args):
         from py_utils.onnx_executor import ONNX_model_container
         model = ONNX_model_container(args.model_path)
     else:
-        raise ValueError(f"不支持的模型格式: {model_path}\n视频检测仅支持 .onnx 和 .rknn 模型，不支持 .pt 文件")
+        raise ValueError(f"YOLO11 视频检测不支持 .pt 文件，仅支持 .onnx 和 .rknn 模型\n请检查模型路径: {model_path}")
     print(f'Model-{model_path} is {platform} model, starting detection')
     return model, platform
 

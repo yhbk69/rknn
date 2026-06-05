@@ -92,3 +92,6 @@ models/CV/object_detection/yolo/RKNN_python_demo/*.json
 # Temporary directories
 tmp/
 temp/
+examples/yolo11/python/mAP_test.md
+examples/yolo11/python/yolo11n_fp_rknn.json
+examples/yolo11/python/yolo11n_onnx.json
