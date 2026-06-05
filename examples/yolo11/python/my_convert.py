@@ -70,7 +70,7 @@ import sys
 from rknn.api import RKNN
 
 # 校准数据集路径：用于量化的参考图片列表（每行一个图片路径）
-DATASET_PATH = '../../../datasets/COCO/coco_subset_20.txt'
+DATASET_PATH = '../../../datasets/helmet/helmet_subset_20.txt'
 # 默认输出路径
 DEFAULT_RKNN_PATH = '../model/yolo11.rknn'
 # 默认启用量化

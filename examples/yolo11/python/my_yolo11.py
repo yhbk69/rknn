@@ -139,7 +139,48 @@ def box_process(position):
 
 
 def post_process(input_data):
-    """YOLO11 模型输出后处理：解码检测框、过滤、NMS"""
+    """YOLO11 模型输出后处理：解码检测框、过滤、NMS
+
+    支持两种输出格式：
+    1. 单张量格式 [1, 4+num_classes, 8400]（如 helmet_13.onnx）
+    2. 多分支格式（如 yolo11n.onnx）
+    """
+    # 检测输出格式
+    if len(input_data) == 1 and len(input_data[0].shape) == 3:
+        # 单张量格式 [1, 4+num_classes, 8400]
+        output = input_data[0]
+        num_classes = output.shape[1] - 4
+        boxes_xywh = output[:, :4, :].transpose(0, 2, 1)  # [1, 8400, 4]
+        class_probs = output[:, 4:, :].transpose(0, 2, 1)  # [1, 8400, num_classes]
+
+        # 将 cx,cy,w,h 转为 x1,y1,x2,y2
+        cx = boxes_xywh[0, :, 0]
+        cy = boxes_xywh[0, :, 1]
+        w = boxes_xywh[0, :, 2]
+        h = boxes_xywh[0, :, 3]
+
+        boxes = np.stack([cx - w/2, cy - h/2, cx + w/2, cy + h/2], axis=1)
+        scores = np.max(class_probs[0], axis=1)
+        classes = np.argmax(class_probs[0], axis=1)
+
+        # 过滤低置信度
+        mask = scores >= OBJ_THRESH
+        boxes = boxes[mask]
+        scores = scores[mask]
+        classes = classes[mask]
+
+        if len(boxes) == 0:
+            return None, None, None
+
+        # NMS
+        keep = nms_boxes(boxes, scores)
+        boxes = boxes[keep]
+        classes = classes[keep]
+        scores = scores[keep]
+
+        return boxes, classes, scores
+
+    # 多分支格式（原始逻辑）
     boxes, scores, classes_conf = [], [], []
     defualt_branch = 3
     pair_per_branch = len(input_data) // defualt_branch
