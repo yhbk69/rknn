@@ -20,7 +20,7 @@ YOLO11 视频检测脚本（支持 ONNX / RKNN）
 参数说明:
     --model_path      模型路径 (.onnx / .rknn)，必填
     --video_path      视频路径，必填
-    --target          目标平台 (default: rk3566)
+    --target          目标平台 (default: rk3588)
     --video_save      保存结果视频到 ./result/
 """
 
